@@ -76,8 +76,8 @@ def _rewrite_query(question, history):
 
         if 2 <= len(out) <= 50 and "：" not in out[:6] and "。" not in out:
             return out
-        print("【提示】改写结果异常（%s），退回原问题。" % out[:50])
+        print("【提示】改写结果长度或格式异常（%d 字），退回原问题。" % len(out))
         return question
     except Exception as e:
-        print("【提示】查询重写失败（%s），直接用原问题检索。" % e)
+        print("【提示】查询重写失败（%s），直接用原问题检索。" % type(e).__name__)
         return question

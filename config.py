@@ -207,6 +207,13 @@ _FOLLOWUP_HINTS = ("它", "这个", "那个", "这些", "那些", "上面", "刚
                    "还有", "呢", "这种", "该")
 
 MAX_UPLOAD_BYTES = int(os.environ.get("RAG_MAX_UPLOAD_MB", "50")) * 1024 * 1024
+MAX_DOCX_UNCOMPRESSED_BYTES = (
+    int(os.environ.get("RAG_MAX_DOCX_UNCOMPRESSED_MB", "200"))
+    * 1024
+    * 1024
+)
+MAX_DOCX_ENTRIES = max(100, int(os.environ.get("RAG_MAX_DOCX_ENTRIES", "10000")))
+MAX_PDF_PAGES = max(1, int(os.environ.get("RAG_MAX_PDF_PAGES", "1000")))
 
 
 

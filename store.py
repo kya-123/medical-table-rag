@@ -1,9 +1,7 @@
 
 import os
-import sqlite3
 import jieba
 import numpy as np
-from contextlib import closing
 
 
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
@@ -18,6 +16,7 @@ from config import (
     CHROMA_DB_DIR, DEVICE,
 )
 from parsing import chinese_rag_slice_advanced, text_hash_of, extract_text
+from profile_store import init_profile_db
 
 client = chromadb.PersistentClient(
     path=CHROMA_DB_DIR,
@@ -72,43 +71,6 @@ def add_text_to_knowledge_base(text: str, source_name: str) -> int:
 
 def build_knowledge_base(file_path: str) -> int:
     return add_text_to_knowledge_base(extract_text(file_path), os.path.basename(file_path))
-
-_TYPE_SQL = {"int": "INTEGER", "float": "REAL", "str": "TEXT"}
-
-def _init_profile_db():
-    cols = ",\n                ".join(
-        "%s %s" % (key, _TYPE_SQL.get(t, "TEXT")) for key, _label, t in PROFILE_FIELDS)
-    with closing(sqlite3.connect(PROFILE_DB)) as conn:
-        with conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS profiles (
-                    user_id        TEXT PRIMARY KEY,
-                    %s,
-                    updated_at     TEXT
-                )
-            """ % cols)
-
-            have = {r[1] for r in conn.execute("PRAGMA table_info(profiles)")}
-            for key, _label, t in PROFILE_FIELDS:
-                if key not in have:
-                    conn.execute("ALTER TABLE profiles ADD COLUMN %s %s"
-                                 % (key, _TYPE_SQL.get(t, "TEXT")))
-
-def _load_profile(user_id):
-    if not user_id:
-        return {}
-    try:
-        with closing(sqlite3.connect(PROFILE_DB)) as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute("SELECT * FROM profiles WHERE user_id = ?",
-                               (str(user_id),)).fetchone()
-        if not row:
-            return {}
-        return {k: row[k] for k in row.keys() if k not in ("user_id", "updated_at")}
-    except Exception as e:
-
-        print("【提示】读取健康档案失败（%s），本次按无档案处理。" % e)
-        return {}
 
 _reranker = None
 
@@ -176,4 +138,4 @@ def _bm25_search(question: str, top_k: int = 20):
 
 
 
-_init_profile_db()
+init_profile_db(PROFILE_DB, PROFILE_FIELDS)

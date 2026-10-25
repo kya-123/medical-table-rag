@@ -2,6 +2,7 @@
 import os
 import re
 import hashlib
+from zipfile import ZipFile
 from typing import List
 
 from docx import Document
@@ -10,9 +11,23 @@ from docx.text.paragraph import Paragraph as _Par
 
 from pypdf import PdfReader
 
-from config import MAX_UPLOAD_BYTES, UPLOAD_TMP_DIR, READ_BLOCK
+from config import (
+    MAX_DOCX_ENTRIES,
+    MAX_DOCX_UNCOMPRESSED_BYTES,
+    MAX_PDF_PAGES,
+    MAX_UPLOAD_BYTES,
+    UPLOAD_TMP_DIR,
+    READ_BLOCK,
+)
 
 def read_docx(file_path: str) -> str:
+    with ZipFile(file_path) as archive:
+        entries = archive.infolist()
+        if len(entries) > MAX_DOCX_ENTRIES:
+            raise ValueError("DOCX 内部文件数量超过安全上限")
+        total_size = sum(entry.file_size for entry in entries)
+        if total_size > MAX_DOCX_UNCOMPRESSED_BYTES:
+            raise ValueError("DOCX 解压后体积超过安全上限")
     doc = Document(file_path)
 
     def table_lines(tbl, prev_paras=None):
@@ -130,6 +145,8 @@ def read_txt(file_path: str) -> str:
 
 def read_pdf(file_path: str) -> str:
     reader = PdfReader(file_path)
+    if len(reader.pages) > MAX_PDF_PAGES:
+        raise ValueError("PDF 页数超过安全上限")
     text = ""
     for page in reader.pages:
         text += page.extract_text() or ""

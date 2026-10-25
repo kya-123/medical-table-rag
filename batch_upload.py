@@ -3,7 +3,7 @@ import requests
 import hashlib
 import json
 from pathlib import Path
-from api_headers import api_headers
+from api_headers import admin_headers
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOADED_STATE_FILE = BASE_DIR / "uploaded_state.json"
@@ -40,7 +40,7 @@ for filename in os.listdir(doc_folder):
             resp = requests.post(
                 os.environ.get("RAG_BASE_URL", "http://localhost:8001") + "/upload",
                 files=files,
-                headers=api_headers(),
+                headers=admin_headers(),
             )
             print(f"{filename}: {resp.json()}")
         except Exception as e:

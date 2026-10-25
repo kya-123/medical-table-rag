@@ -12,9 +12,13 @@ python batch_upload.py
 
 也可以调用上传接口：
 
-```bash
-curl -X POST http://127.0.0.1:8001/upload -F "file=@your_doc.docx"
+```powershell
+curl.exe -X POST http://127.0.0.1:8001/upload `
+  -H "Authorization: Bearer <RAG_ADMIN_TOKEN>" `
+  -F "file=@your_doc.docx"
 ```
+
+本机未配置 Token 时可以省略 `Authorization`；对外部署时必须使用管理员 Token。
 
 如果文档里有表格，请使用 Word 的真实表格，不要用空格或制表符排版。解析器会尽量保留表名和列名。
 

@@ -1,9 +1,11 @@
-import io, os, time
+import io, os, time, uuid
 import requests
-from api_headers import api_headers
+from api_headers import admin_headers, api_headers
 
 B = os.environ.get("RAG_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
 HEADERS = api_headers()
+ADMIN_HEADERS = admin_headers()
+PROFILE_USER_ID = "_selftest_" + uuid.uuid4().hex[:12]
 SMOKE_QUESTION = os.environ.get(
     "RAG_SMOKE_QUESTION",
     "MedRAG 的切片长度是多少，为什么是这个数",
@@ -42,14 +44,17 @@ check("GET /sources", r.status_code == 200 and d.get("total_chunks", 0) > 0,
 print("=== 4. 用户档案 ===")
 r = requests.post(
     f"{B}/profile",
-    json={"user_id": "_selftest", "age": 58, "diabetes_type": "2型"},
+    json={"user_id": PROFILE_USER_ID, "age": 58, "diabetes_type": "2型"},
     timeout=30,
     headers=HEADERS,
 )
 check("POST /profile", r.status_code == 200 and "档案已保存" in r.json().get("message", ""))
-r = requests.get(f"{B}/profile/_selftest", timeout=30, headers=HEADERS)
+profile_token = r.json().get("data", {}).get("profile_token", "")
+check("档案访问令牌已返回", bool(profile_token))
+PROFILE_HEADERS = {**HEADERS, "X-Profile-Token": profile_token}
+r = requests.get(f"{B}/profile/{PROFILE_USER_ID}", timeout=30, headers=PROFILE_HEADERS)
 check("GET /profile", r.status_code == 200 and r.json().get("data", {}).get("age") == 58)
-r = requests.get(f"{B}/profiles", timeout=30, headers=HEADERS)
+r = requests.get(f"{B}/profiles", timeout=30, headers=ADMIN_HEADERS)
 allow_profile_list = os.environ.get("RAG_ALLOW_PROFILE_LIST", "").strip().lower() in ("1", "true", "yes")
 expected_profile_status = 200 if allow_profile_list else 403
 check("GET /profiles", r.status_code == expected_profile_status,
@@ -63,7 +68,7 @@ with open(tmp, "rb") as f:
         f"{B}/upload",
         files={"file": (tmp, f, "text/plain")},
         timeout=240,
-        headers=HEADERS,
+        headers=ADMIN_HEADERS,
     )
 msg = r.json().get("message", "")
 check("POST /upload", r.status_code == 200 and "上传成功" in msg, f"({msg[:30]})")
@@ -74,14 +79,14 @@ r = requests.post(
     f"{B}/delete",
     json={"source": "_selftest_upload.txt"},
     timeout=60,
-    headers=HEADERS,
+    headers=ADMIN_HEADERS,
 )
 check("POST /delete 预览", r.status_code == 200 and r.json().get("data", {}).get("deleted") is False)
 r = requests.post(
     f"{B}/delete",
     json={"source": "_selftest_upload.txt", "confirm": True},
     timeout=120,
-    headers=HEADERS,
+    headers=ADMIN_HEADERS,
 )
 check("POST /delete 执行", r.status_code == 200 and r.json().get("data", {}).get("deleted") is True)
 
@@ -94,7 +99,7 @@ r = requests.post(
 )
 check("无关问题被拒答", r.json().get("answer", "").startswith("未找到"))
 
-r = requests.delete(f"{B}/profile/_selftest", timeout=30, headers=HEADERS)
+r = requests.delete(f"{B}/profile/{PROFILE_USER_ID}", timeout=30, headers=PROFILE_HEADERS)
 check("DELETE /profile 清理", r.status_code == 200 and r.json().get("data", {}).get("deleted") is True)
 
 print(f"\n合计：通过 {ok}，失败 {fail}")

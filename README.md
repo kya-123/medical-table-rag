@@ -26,7 +26,7 @@
 - 使用 Cross-Encoder 对候选片段重排；
 - 回答中带【资料N】引用，接口返回 `sources`；
 - 资料不足时返回 `partial` 或 `refuse`，不强行补全；
-- 支持多轮追问改写、文件上传、删除和用户档案；
+- 支持多轮追问改写、受保护的文件上传、删除和用户档案；
 - 向量模型和重排模型在本地运行，只有生成阶段访问 DeepSeek。
 
 ## 目录
@@ -34,7 +34,8 @@
 | 路径 | 内容 |
 |---|---|
 | `parsing.py` | 文档解析、表格处理、切片 |
-| `store.py` | ChromaDB、BM25、重排模型和档案数据库 |
+| `store.py` | ChromaDB、BM25 和重排模型 |
+| `profile_store.py` | 带访问令牌的个人健康档案存储 |
 | `retrieval.py` | 召回、融合、重排和表格补全 |
 | `evidence_sufficiency.py` | 意图、分面覆盖率和三态判定 |
 | `generation.py` | 模型调用和多轮改写 |
@@ -77,6 +78,19 @@ python rag_system.py
 
 默认地址是 `http://127.0.0.1:8001`，接口文档是 `http://127.0.0.1:8001/docs`。
 
+默认只监听本机，此时可以不配置接口 Token。对局域网或公网提供服务时，
+启动会强制要求两个不同的 Token：
+
+```powershell
+$env:RAG_HOST = "0.0.0.0"
+$env:RAG_API_TOKEN = "给普通问答客户端使用"
+$env:RAG_ADMIN_TOKEN = "只给上传、删除和管理员使用"
+python rag_system.py
+```
+
+没有配置这两个 Token 时，对外监听会直接拒绝启动。公网部署还应在前面加 HTTPS
+反向代理，并限制请求频率和并发数。
+
 导入文档：
 
 ```bash
@@ -116,6 +130,16 @@ $env:RAG_CHROMA_DIR = "D:\rag_index"
 
 `/ask` 的返回中包含 `answer`、`context`、`sources` 和 `decision`。
 
+首次保存健康档案时，接口会在 `data.profile_token` 返回一个访问令牌。
+读取、删除或让 `/ask` 使用已保存档案时，要带上：
+
+```http
+X-Profile-Token: <保存时返回的 Token>
+```
+
+服务端只保存该 Token 的哈希，不保存明文。普通 `RAG_API_TOKEN`
+不能代替档案 Token。
+
 `decision` 有三种值：
 
 - `answer`：资料足够；
@@ -128,13 +152,19 @@ $env:RAG_CHROMA_DIR = "D:\rag_index"
 |---|---|---|
 | `RAG_PORT` | `8001` | 端口 |
 | `RAG_HOST` | `127.0.0.1` | 监听地址 |
-| `RAG_API_TOKEN` | 空 | Bearer Token |
+| `RAG_API_TOKEN` | 空 | 普通接口 Bearer Token |
+| `RAG_ADMIN_TOKEN` | 空 | 上传、删除和档案列表管理员 Token |
+| `RAG_PUBLIC_DOCS` | `1` | 是否允许匿名打开 `/docs` |
+| `RAG_RATE_LIMIT_PER_MINUTE` | `120` | 每个客户端的普通请求上限，0 为关闭 |
+| `RAG_ADMIN_RATE_LIMIT_PER_MINUTE` | `30` | 每个客户端的管理请求上限，0 为关闭 |
 | `RAG_PROFILE` | `generic` | 预设身份 |
 | `RAG_DOMAIN` | `医疗健康` | 领域名称 |
 | `RAG_ASSISTANT_NAME` | 自动生成 | 助手名称 |
 | `RAG_CHROMA_DIR` | 自动选择 | 索引目录 |
 | `RAG_RERANK_POOL` | `40` | 重排候选数 |
 | `RAG_MIN_RERANK_SCORE` | `0.3` | 最低整体意图分 |
+| `RAG_MAX_DOCX_UNCOMPRESSED_MB` | `200` | DOCX 解压后的体积上限 |
+| `RAG_MAX_PDF_PAGES` | `1000` | 单份 PDF 的最大页数 |
 
 ## 评测
 
@@ -169,9 +199,12 @@ python eval/retrieval_gate_probe.py
 - ChromaDB 是本地单进程使用，不适合多进程同时写。
 - 多药问题 Q3 只召回了部分药物资料，目前降级为 `partial`。
 - Q5 当前判为 `answer`，但 Context Recall 只有 0.167，需要人工核对最终回答。
-- 档案是本地明文 SQLite，不能直接存真实患者数据。
-- `/upload` 和 `/delete` 没有用户隔离，外网部署前必须补权限。
+- 档案正文仍是本地明文 SQLite，不能直接存真实患者数据。
+- 限流保存在单进程内存中，多进程部署需要换成 Redis 等共享限流。
+- 上传文档仍应只允许管理员操作，不能开放给普通问答用户。
 - 评测集较小，指标适合版本对比，不适合作为公开榜单。
+
+公网部署前请阅读 [SECURITY.md](SECURITY.md)。
 
 ## 检查
 

@@ -95,12 +95,12 @@ def _keyword_search(question: str):
             where_document=wd,
             include=["documents", "metadatas"], limit=KEYWORD_MAX_CHUNKS)
     except Exception as e:
-        print("【提示】关键词检索失败（%s），本次只用向量检索。" % e)
+        print("【提示】关键词检索失败（%s），本次只用向量检索。" % type(e).__name__)
         return []
     pairs = list(zip(got.get("metadatas") or [], got.get("documents") or []))
 
     pairs.sort(key=lambda x: -sum(1 for t in terms if t in x[1]))
-    print("【混合检索】关键词 %s → 命中 %d 条" % (terms, len(pairs)))
+    print("【混合检索】关键词 %d 个 → 命中 %d 条" % (len(terms), len(pairs)))
 
     return [(d, (m or {}).get("source", "")) for m, d in pairs]
 
@@ -225,7 +225,7 @@ def _retrieve_with_assessment(
         scored_picked = list(zip(picked, scores))
         scored_picked.sort(key=lambda x: -float(x[1]))
     except Exception as e:
-        print("【警告】重排失败，无法执行安全判定：%s" % e)
+        print("【警告】重排失败，无法执行安全判定：%s" % type(e).__name__)
         assessment = assess_evidence(question, [])
         assessment.reason = "重排模型推理失败，无法安全判断证据是否充分"
         return [], assessment.to_dict()
@@ -379,7 +379,7 @@ def _expand_tables(picked, max_tables: int = 3, max_chunks: int = 60, doc_source
                     got = collection.get(where_document={"$contains": key},
                                          include=["documents", "metadatas"])
                     if got and got.get("documents"):
-                        print("【表格补全】限定来源没找到，退回全库：%s" % key[:20])
+                        print("【表格补全】限定来源没找到，已退回全库")
                         break
                 except Exception:
                     got = None

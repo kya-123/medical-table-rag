@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from api_headers import api_headers
+from api_headers import admin_headers, api_headers
 
 
 class ApiHeadersTest(unittest.TestCase):
@@ -16,6 +16,20 @@ class ApiHeadersTest(unittest.TestCase):
             self.assertEqual(
                 api_headers(),
                 {"Authorization": "Bearer secret-token"},
+            )
+
+    def test_admin_header_prefers_admin_token(self):
+        with patch.dict(
+            os.environ,
+            {
+                "RAG_API_TOKEN": "api-token",
+                "RAG_ADMIN_TOKEN": "admin-token",
+            },
+            clear=False,
+        ):
+            self.assertEqual(
+                admin_headers(),
+                {"Authorization": "Bearer admin-token"},
             )
 
 
