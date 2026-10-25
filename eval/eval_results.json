@@ -1,0 +1,118 @@
+{
+  "run_info": {
+    "status": "historical_snapshot",
+    "date": "2026-10-22",
+    "note": "证据判定层加入前的详细评测快照；当前版本生成评测因 DeepSeek 请求返回 500 未完成，不能把本次失败写成 0 分。详细上下文预览已移除，仅保留历史指标。",
+    "top_k": 5,
+    "generation_model": "deepseek-chat",
+    "index_sources": 21,
+    "index_chunks": 4573
+  },
+  "summary": {
+    "total_questions": 14,
+    "avg_recall": 0.5798160173160173,
+    "avg_hit": 0.5238095238095238,
+    "avg_answer_recall": 0.7002267573696145,
+    "avg_answer_length": 1005.0714285714286
+  },
+  "details": [
+    {
+      "question": "在家测血糖，空腹、餐后 2 小时的正常范围分别是多少？测之前需要注意什么？",
+      "recall": 0.6666666666666666,
+      "hit": 0.6666666666666666,
+      "answer_length": 1115,
+      "answer_recall": 0.8888888888888888
+    },
+    {
+      "question": "指尖血和医院静脉血的血糖结果不一样，哪个更准？误差多少算正常？",
+      "recall": 0.42857142857142855,
+      "hit": 0.6666666666666666,
+      "answer_length": 1009,
+      "answer_recall": 0.5714285714285714
+    },
+    {
+      "question": "不同的降糖药，比如二甲双胍、格列齐特、SGLT-2 抑制剂，分别适合哪种类型的糖尿病人？",
+      "recall": 0.375,
+      "hit": 1.0,
+      "answer_length": 1023,
+      "answer_recall": 0.5
+    },
+    {
+      "question": "降糖药有没有最佳服用时间？比如空腹、餐前 30 分钟、餐中、餐后，不同时间吃效果差多少？",
+      "recall": 0.7142857142857143,
+      "hit": 0.3333333333333333,
+      "answer_length": 1155,
+      "answer_recall": 0.8571428571428571
+    },
+    {
+      "question": "吃了药但餐后血糖还是高，是药没效果，还是我饮食没控制好？该怎么区分？",
+      "recall": 0.16666666666666666,
+      "hit": 0.6666666666666666,
+      "answer_length": 1654,
+      "answer_recall": 0.16666666666666666
+    },
+    {
+      "question": "我国9次全国性糖尿病流行病学调查分别在哪些年份？",
+      "recall": 0.9090909090909091,
+      "hit": 0.0,
+      "answer_length": 659,
+      "answer_recall": 1.0
+    },
+    {
+      "question": "血糖仪多久校准一次？试纸过期了还能用来测血糖吗？",
+      "recall": 0.5,
+      "hit": 1.0,
+      "answer_length": 86,
+      "answer_recall": 0.6666666666666666
+    },
+    {
+      "question": "每天需要测几次血糖？不同时间段（空腹、餐前、餐后、睡前）测的意义是什么？",
+      "recall": 0.7142857142857143,
+      "hit": 0.6666666666666666,
+      "answer_length": 1462,
+      "answer_recall": 0.8571428571428571
+    },
+    {
+      "question": "一次吃了双倍的降糖药，会不会导致低血糖？该怎么应急处理？",
+      "recall": 0.5,
+      "hit": 0.6666666666666666,
+      "answer_length": 1368,
+      "answer_recall": 0.6666666666666666
+    },
+    {
+      "question": "胰岛素和口服降糖药可以一起用吗？什么情况下需要打胰岛素？",
+      "recall": 0.5714285714285714,
+      "hit": 0.3333333333333333,
+      "answer_length": 1421,
+      "answer_recall": 0.42857142857142855
+    },
+    {
+      "question": "降糖药有副作用吗？比如腹泻、头晕、体重变化，出现这些情况需要停药吗？",
+      "recall": 0.5714285714285714,
+      "hit": 0.6666666666666666,
+      "answer_length": 1162,
+      "answer_recall": 1.0
+    },
+    {
+      "question": "睡前测血糖偏低，还需要吃睡前的降糖药吗？怕半夜低血糖。",
+      "recall": 0.8,
+      "hit": 0.6666666666666666,
+      "answer_length": 902,
+      "answer_recall": 0.8
+    },
+    {
+      "question": "刚开始吃降糖药，血糖下降比较快，会不会有不适？需要慢慢加量吗？",
+      "recall": 0.2,
+      "hit": 0.0,
+      "answer_length": 928,
+      "answer_recall": 0.4
+    },
+    {
+      "question": "1980年全国糖尿病患病率是多少？",
+      "recall": 1.0,
+      "hit": 0.0,
+      "answer_length": 127,
+      "answer_recall": 1.0
+    }
+  ]
+}

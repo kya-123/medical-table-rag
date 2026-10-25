@@ -1,0 +1,31 @@
+# Install torch separately so you can choose CPU or CUDA.
+# CPU:
+#   pip install torch==2.14.0 --index-url https://mirror.sjtu.edu.cn/pytorch-wheels/cpu
+# CUDA 13.0:
+#   pip install torch==2.14.1 --index-url https://mirror.sjtu.edu.cn/pytorch-wheels/cu130
+
+fastapi==0.141.1
+uvicorn==0.52.1
+pydantic==2.13.4
+
+sentence-transformers==5.6.1
+numpy==2.5.1
+chromadb==1.5.9
+
+langchain-openai==1.7.0
+langchain-core==1.6.9
+openai==2.53.0
+
+jieba==0.42.1
+rank-bm25==0.2.2
+
+python-docx==1.2.0
+pypdf==6.15.0
+
+python-multipart==0.0.32
+requests==2.34.2
+
+transformers==5.14.1
+tokenizers==0.22.2
+onnxruntime==1.28.0
+grpcio==1.83.0

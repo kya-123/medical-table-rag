@@ -1,0 +1,51 @@
+# ============ 密钥（绝对不能提交） ============
+config.txt
+.env
+*.key
+*.pem
+*.crt
+
+# ============ 本地运行产生的数据 ============
+# 向量库（几百 MB，可重建）
+chroma_db*/
+chroma_path_probe*/
+# 用户健康档案（含个人医疗数据）
+profiles.db
+# 上传台账
+uploaded_state.json
+uploaded_state.json.tmp
+# 上传临时区
+upload_tmp/
+# 任何本地数据库（健康档案、向量库的 sqlite 都算）
+*.db
+*.sqlite3
+
+# ============ 模型文件（2.4 GB，自行下载） ============
+model/
+*.safetensors
+*.bin
+
+# ============ 知识库原始文档（版权原因，仓库不含） ============
+my_knowledge/*
+!my_knowledge/README.md
+
+# ============ 模块化重构试验版（未完成，暂不入库） ============
+rag_modular/
+
+# ============ Python ============
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+myenv/
+*.egg-info/
+.pytest_cache/
+
+# ============ 编辑器 / 系统 ============
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+*.log
+$null
+_count_probe.py

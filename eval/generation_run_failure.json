@@ -1,0 +1,14 @@
+{
+  "run_info": {
+    "date": "2026-10-22",
+    "endpoint": "http://127.0.0.1:8002/ask",
+    "model": "deepseek-chat",
+    "top_k": 5,
+    "index_sources": 21,
+    "index_chunks": 4891
+  },
+  "outcome": "failed_before_answer",
+  "error": "OpenAIConnectionError: Connection error.",
+  "failed_questions": 14,
+  "note": "检索与证据判定均完成，但当前运行环境无法连接 DeepSeek。此次失败不产生 Answer Recall，也不覆盖历史评测结果。"
+}

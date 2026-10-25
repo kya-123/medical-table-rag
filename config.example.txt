@@ -1,0 +1,5 @@
+# 复制本文件为 config.txt，再填入自己的 DeepSeek API Key。
+# 也可以直接设置 DEEPSEEK_API_KEY 环境变量，环境变量优先。
+# config.txt 已加入 .gitignore，不要提交真实 Key。
+
+DEEPSEEK_API_KEY=sk-REPLACE_ME_WITH_YOUR_OWN_KEY
