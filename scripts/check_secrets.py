@@ -1,12 +1,16 @@
+import argparse
+import os
 import re
 import subprocess
 import sys
+import zipfile
 
 
 PATTERNS = [
     (r"sk-[A-Za-z0-9_\-]{20,}", "疑似 API key（sk-…）"),
     (r"AKIA[0-9A-Z]{16}", "疑似 AWS Access Key"),
-    (r"ghp_[A-Za-z0-9]{30,}", "疑似 GitHub Token"),
+    (r"gh[pousr]_[A-Za-z0-9]{20,}", "疑似 GitHub Token"),
+    (r"github_pat_[A-Za-z0-9_]{20,}", "疑似 GitHub fine-grained Token"),
     (r"-----BEGIN (RSA |EC )?PRIVATE KEY-----", "疑似私钥"),
 ]
 
@@ -14,6 +18,10 @@ PATTERNS = [
 ALLOW_FILES = {"config.example.txt", "scripts/check_secrets.py"}
 
 ALLOW_VALUES = re.compile(r"(REPLACE|EXAMPLE|YOUR_OWN|xxxx|placeholder)", re.I)
+SCAN_EXTENSIONS = {
+    ".bat", ".cfg", ".ini", ".js", ".json", ".md", ".py",
+    ".sh", ".toml", ".txt", ".xml", ".yaml", ".yml",
+}
 
 
 def git_files() -> list[str]:
@@ -32,31 +40,75 @@ def git_files() -> list[str]:
     ]
 
 
+def scan_text(label: str, text: str) -> int:
+    problems = 0
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for pat, description in PATTERNS:
+            for match in re.finditer(pat, line):
+                if ALLOW_VALUES.search(match.group(0)):
+                    continue
+                problems += 1
+                print(f"  ✘ {label}:{lineno}  {description}")
+    return problems
+
+
+def explicit_files(paths) -> list[str]:
+    files = []
+    for path in paths:
+        if os.path.isdir(path):
+            for root, _dirs, names in os.walk(path):
+                for name in names:
+                    if os.path.splitext(name)[1].lower() in SCAN_EXTENSIONS:
+                        files.append(os.path.join(root, name))
+        else:
+            files.append(path)
+    return files
+
+
+def scan_zip(path: str) -> int:
+    problems = 0
+    with zipfile.ZipFile(path) as archive:
+        for info in archive.infolist():
+            if info.file_size > 5 * 1024 * 1024:
+                continue
+            ext = os.path.splitext(info.filename)[1].lower()
+            if ext not in SCAN_EXTENSIONS and not info.filename.endswith("config.txt"):
+                continue
+            text = archive.read(info).decode("utf-8", errors="ignore")
+            problems += scan_text("%s!%s" % (path, info.filename), text)
+    return problems
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path", action="append", default=[])
+    parser.add_argument("--zip", action="append", default=[])
+    args = parser.parse_args()
     try:
         files = git_files()
     except Exception as e:
-        print(f"读不到 git 文件列表（是否在仓库根目录？）：{e}")
-        return 1
+        print(f"提示：读不到 git 文件列表（是否在仓库根目录？）：{e}")
+        files = []
 
+    files.extend(explicit_files(args.path))
     problems = 0
     for path in files:
-        if path in ALLOW_FILES:
+        if path in ALLOW_FILES or os.path.basename(path) in ALLOW_FILES:
             continue
         try:
             with open(path, encoding="utf-8", errors="ignore") as handle:
                 text = handle.read()
         except OSError:
             continue
-        for lineno, line in enumerate(text.splitlines(), 1):
-            for pat, label in PATTERNS:
-                for m in re.finditer(pat, line):
-                    if ALLOW_VALUES.search(m.group(0)):
-                        continue
-                    problems += 1
-                    print(f"  ✘ {path}:{lineno}  {label}")
+        problems += scan_text(path, text)
 
-    print(f"\n检查了 {len(files)} 个仓库文件，发现问题 {problems} 处。")
+    for path in args.zip:
+        problems += scan_zip(path)
+
+    print(
+        f"\n检查了 {len(files)} 个文件、{len(args.zip)} 个 ZIP，"
+        f"发现问题 {problems} 处。"
+    )
     if problems:
         print("提示：把真实 key 从代码里删掉，改用 config.txt（已 gitignore）或环境变量。")
         return 1

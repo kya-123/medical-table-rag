@@ -15,10 +15,13 @@ from config import (
     MAX_DOCX_ENTRIES,
     MAX_DOCX_UNCOMPRESSED_BYTES,
     MAX_PDF_PAGES,
+    MAX_TABLE_ROW_CHARS,
     MAX_UPLOAD_BYTES,
     UPLOAD_TMP_DIR,
     READ_BLOCK,
 )
+from table_text import row_cell_values, split_table_line
+
 
 def read_docx(file_path: str) -> str:
     with ZipFile(file_path) as archive:
@@ -34,12 +37,7 @@ def read_docx(file_path: str) -> str:
 
         grid = []
         for row in tbl.rows:
-            cells, prev = [], None
-            for c in row.cells:
-                t = c.text.strip().replace("\n", " ")
-                if t != prev:
-                    cells.append(t)
-                prev = t
+            cells = row_cell_values(row)
             if any(cells):
                 grid.append(cells)
         if not grid:
@@ -95,11 +93,12 @@ def read_docx(file_path: str) -> str:
         out = []
         for r in body:
             if len(header) >= 2 and 0 < len(r) <= len(header):
-                out.append(tag + "；".join(
+                line = tag + "；".join(
                     ("%s：%s" % (header[i], r[i])) if header[i] else r[i]
-                    for i in range(len(r))))
+                    for i in range(len(r)))
             else:
-                out.append(tag + " | ".join(r))
+                line = tag + " | ".join(r)
+            out.extend(split_table_line(line, MAX_TABLE_ROW_CHARS))
         return out
 
     parts = []

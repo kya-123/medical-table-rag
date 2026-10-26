@@ -169,6 +169,8 @@ CHROMA_DB_DIR = os.environ.get("RAG_CHROMA_DIR") or _default_chroma_dir()
 
 
 
+
+
 RAG_DOMAIN = os.environ.get("RAG_DOMAIN", "医疗健康")
 RAG_ASSISTANT_NAME = os.environ.get("RAG_ASSISTANT_NAME", RAG_DOMAIN + "助手")
 
@@ -214,6 +216,10 @@ MAX_DOCX_UNCOMPRESSED_BYTES = (
 )
 MAX_DOCX_ENTRIES = max(100, int(os.environ.get("RAG_MAX_DOCX_ENTRIES", "10000")))
 MAX_PDF_PAGES = max(1, int(os.environ.get("RAG_MAX_PDF_PAGES", "1000")))
+MAX_TABLE_ROW_CHARS = max(
+    200,
+    int(os.environ.get("RAG_MAX_TABLE_ROW_CHARS", "360")),
+)
 
 
 
