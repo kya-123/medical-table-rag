@@ -82,7 +82,7 @@ class EvidenceJudgeTest(unittest.TestCase):
                 self.candidates,
             )
 
-    def test_agent_cannot_upgrade_answer(self):
+    def test_agent_cannot_upgrade_to_answer_or_override_high_risk(self):
         self.assertEqual(
             merge_evidence_decision("answer", "partial", "high"),
             "partial",

@@ -153,7 +153,9 @@ X-Profile-Token: <保存时返回的 Token>
 
 接口还会返回 `qfes_decision` 和 `agent_reviews`。前者是原 QFES 的判定，
 后者记录证据裁判、回答审查是否执行、是否调整了状态，以及模型异常时的回退情况。
-智能体不能无证据升级回答；调用超时或 JSON 校验失败时会保留原 QFES 结果。
+智能体不能把回答升级为 `answer`；只有引文逐字验证通过时，才允许把 QFES 的
+`refuse` 提升为 `partial`，高风险问题仍保持拒绝。调用超时或 JSON 校验失败时
+会保留原 QFES 结果。
 
 ## 常用环境变量
 
