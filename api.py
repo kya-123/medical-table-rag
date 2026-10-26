@@ -209,7 +209,7 @@ class AskRequest(BaseModel):
 
     top_k: int = Field(5, ge=1, le=20)
 
-    history: Optional[List[ChatMessage]] = None
+    history: Optional[List[ChatMessage]] = Field(None, max_length=20)
     profile: Optional[ProfilePayload] = None
     user_id: Optional[str] = Field(None, max_length=64)
     profile_token: Optional[str] = Field(None, min_length=16, max_length=128)
