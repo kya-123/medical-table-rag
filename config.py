@@ -170,9 +170,9 @@ CHROMA_DB_DIR = os.environ.get("RAG_CHROMA_DIR") or _default_chroma_dir()
 
 
 
-
 RAG_DOMAIN = os.environ.get("RAG_DOMAIN", "医疗健康")
 RAG_ASSISTANT_NAME = os.environ.get("RAG_ASSISTANT_NAME", RAG_DOMAIN + "助手")
+
 
 
 
