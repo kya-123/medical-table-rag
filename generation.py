@@ -2,20 +2,39 @@
 import os
 from langchain_openai import ChatOpenAI
 
-from config import API_KEY, _FOLLOWUP_HINTS, PROFILE_FIELDS
+from config import (
+    AGENT_REVIEW_MAX_TOKENS,
+    AGENT_REVIEW_TIMEOUT,
+    API_KEY,
+    _FOLLOWUP_HINTS,
+    PROFILE_FIELDS,
+)
 
-if API_KEY:
-    llm = ChatOpenAI(
+def create_chat_model(temperature, max_tokens, timeout):
+    return ChatOpenAI(
         model="deepseek-chat",
         base_url="https://api.deepseek.com/v1",
         api_key=API_KEY,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        timeout=timeout,
+    )
+
+if API_KEY:
+    llm = create_chat_model(
         temperature=0.3,
         max_tokens=1500,
         timeout=120,
     )
+    review_llm = create_chat_model(
+        temperature=0.0,
+        max_tokens=AGENT_REVIEW_MAX_TOKENS,
+        timeout=AGENT_REVIEW_TIMEOUT,
+    )
     print("大模型初始化完成：DeepSeek / deepseek-chat")
 else:
     llm = None
+    review_llm = None
 
 def _profile_text(profile):
     if not profile:

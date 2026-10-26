@@ -256,6 +256,34 @@ EVIDENCE_COVERAGE_FULL_SCORE = float(
     os.environ.get("RAG_EVIDENCE_COVERAGE_FULL_SCORE", "0.65")
 )
 
+AGENT_EVIDENCE_REVIEW_MODE = os.environ.get(
+    "RAG_AGENT_EVIDENCE_REVIEW_MODE",
+    "uncertain",
+).strip().lower()
+if AGENT_EVIDENCE_REVIEW_MODE not in {"off", "uncertain", "always"}:
+    AGENT_EVIDENCE_REVIEW_MODE = "uncertain"
+
+AGENT_ANSWER_AUDIT = os.environ.get(
+    "RAG_AGENT_ANSWER_AUDIT",
+    "1",
+).strip().lower() not in {"0", "false", "no", "off"}
+AGENT_REVIEW_MAX_TOKENS = max(
+    200,
+    int(os.environ.get("RAG_AGENT_REVIEW_MAX_TOKENS", "700")),
+)
+AGENT_REVIEW_TIMEOUT = max(
+    5,
+    int(os.environ.get("RAG_AGENT_REVIEW_TIMEOUT", "30")),
+)
+AGENT_REVIEW_MAX_CANDIDATES = max(
+    3,
+    min(30, int(os.environ.get("RAG_AGENT_REVIEW_MAX_CANDIDATES", "12"))),
+)
+AGENT_REVIEW_MAX_CHARS = max(
+    4000,
+    int(os.environ.get("RAG_AGENT_REVIEW_MAX_CHARS", "16000")),
+)
+
 HYBRID_ON = os.environ.get("RAG_HYBRID", "1") not in ("0", "false", "False")
 KEYWORD_MAX_TERMS = 8
 KEYWORD_MAX_HITS = 400

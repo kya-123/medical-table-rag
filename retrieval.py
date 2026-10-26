@@ -246,29 +246,36 @@ def _retrieve_with_assessment(
         after_table_docs,
     ):
         if include_trace:
+            def trace_items(items):
+                rows = []
+                for evidence_id, doc in enumerate(items, 1):
+                    rows.append({
+                        "evidence_id": evidence_id,
+                        "text": doc,
+                        "source": doc_source.get(doc, ""),
+                        "rerank_score": round(
+                            float(score_by_doc.get(doc, 0.0)),
+                            6,
+                        ),
+                    })
+                return rows
+
             result = {
                 **result,
                 "trace": {
-                    "after_retrieval": [
-                        {
-                            "text": doc,
-                            "source": doc_source.get(doc, ""),
-                        }
-                        for doc in after_retrieval_docs
-                    ],
-                    "after_table_expansion": [
-                        {
-                            "text": doc,
-                            "source": doc_source.get(doc, ""),
-                        }
-                        for doc in after_table_docs
-                    ],
+                    "after_retrieval": trace_items(after_retrieval_docs),
+                    "after_table_expansion": trace_items(after_table_docs),
                     "after_gate": [
                         {
+                            "evidence_id": evidence_id,
                             "text": doc,
                             "source": source,
+                            "rerank_score": round(
+                                float(score_by_doc.get(doc, 0.0)),
+                                6,
+                            ),
                         }
-                        for doc, source in docs
+                        for evidence_id, (doc, source) in enumerate(docs, 1)
                     ],
                 },
             }

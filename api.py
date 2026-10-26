@@ -10,10 +10,22 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from config import (
+    AGENT_ANSWER_AUDIT,
+    AGENT_EVIDENCE_REVIEW_MODE,
+    AGENT_REVIEW_MAX_CANDIDATES,
+    AGENT_REVIEW_MAX_CHARS,
     MAX_UPLOAD_BYTES, UPLOAD_TMP_DIR, READ_BLOCK, HISTORY_DIR, PROFILE_DB,
     KNOWLEDGE_DIR,
     PROFILE_FIELDS, RAG_DOMAIN, RAG_ASSISTANT_NAME,
     load_uploaded_state, save_uploaded_state,
+)
+from agent_review import (
+    AgentReviewError,
+    AnswerAuditorAgent,
+    EvidenceJudgeAgent,
+    apply_answer_audit,
+    evidence_review_needed,
+    merge_evidence_decision,
 )
 from parsing import extract_text, text_hash_of
 from store import (
@@ -21,7 +33,7 @@ from store import (
 )
 from retrieval import _retrieve_with_assessment
 from evidence_sufficiency import normalize_query_text
-from generation import llm, _rewrite_query, _profile_text, _history_text
+from generation import llm, review_llm, _rewrite_query, _profile_text, _history_text
 from profile_store import (
     ProfileAccessDenied,
     delete_profile_record,
@@ -80,6 +92,23 @@ API_TOKEN = os.environ.get("RAG_API_TOKEN", "").strip()
 ADMIN_TOKEN = os.environ.get("RAG_ADMIN_TOKEN", "").strip()
 RATE_LIMITER = SlidingWindowRateLimiter(window_seconds=60)
 MAX_JSON_BODY_BYTES = 1024 * 1024
+EVIDENCE_AGENT = (
+    EvidenceJudgeAgent(
+        review_llm,
+        max_candidates=AGENT_REVIEW_MAX_CANDIDATES,
+        max_chars=AGENT_REVIEW_MAX_CHARS,
+    )
+    if review_llm is not None
+    else None
+)
+ANSWER_AUDITOR = (
+    AnswerAuditorAgent(
+        review_llm,
+        max_chars=AGENT_REVIEW_MAX_CHARS,
+    )
+    if review_llm is not None
+    else None
+)
 
 
 @app.middleware("http")
@@ -368,7 +397,102 @@ def ask(
         print("【问题归一化】已应用安全别名替换")
 
 
-    docs, assessment = _retrieve_with_assessment(query, request.top_k)
+    evidence_review_enabled = (
+        EVIDENCE_AGENT is not None
+        and AGENT_EVIDENCE_REVIEW_MODE != "off"
+    )
+    docs, assessment = _retrieve_with_assessment(
+        query,
+        request.top_k,
+        include_trace=evidence_review_enabled,
+    )
+    qfes_decision = assessment.get("decision", "refuse")
+    assessment["qfes_decision"] = qfes_decision
+    trace_data = assessment.pop("trace", {})
+    agent_reviews = {
+        "evidence": {
+            "status": "skipped",
+            "reason": "证据审查未启用",
+        },
+        "answer": {
+            "status": "pending" if AGENT_ANSWER_AUDIT else "skipped",
+            "reason": (
+                "等待生成回答"
+                if AGENT_ANSWER_AUDIT
+                else "回答审查未启用"
+            ),
+        },
+    }
+
+    if evidence_review_enabled:
+        if evidence_review_needed(assessment, AGENT_EVIDENCE_REVIEW_MODE):
+            trace_candidates = (
+                trace_data.get("after_table_expansion")
+                or trace_data.get("after_retrieval")
+                or []
+            )
+            try:
+                evidence_judgement = EVIDENCE_AGENT.review(
+                    query,
+                    assessment,
+                    trace_candidates,
+                )
+                final_decision = merge_evidence_decision(
+                    qfes_decision,
+                    evidence_judgement["decision"],
+                    assessment.get("risk_level", "low"),
+                )
+                existing_missing = {
+                    item.get("facet")
+                    for item in assessment.get("missing_facets", [])
+                    if item.get("facet")
+                }
+                for item in evidence_judgement.get("missing_facets", []):
+                    if item.get("facet") not in existing_missing:
+                        assessment.setdefault("missing_facets", []).append(item)
+                        existing_missing.add(item.get("facet"))
+
+                assessment["agent_decision"] = evidence_judgement["decision"]
+                assessment["decision"] = final_decision
+                if final_decision != qfes_decision:
+                    assessment["reason"] = (
+                        evidence_judgement.get("reason")
+                        or "证据审查调整了基础判定"
+                    )
+
+                if final_decision == "refuse":
+                    docs = []
+                elif final_decision == "partial" or qfes_decision == "refuse":
+                    selected_ids = set(
+                        evidence_judgement.get("selected_evidence_ids", [])
+                    )
+                    selected_docs = [
+                        (item["text"], item.get("source", ""))
+                        for item in trace_candidates
+                        if item.get("evidence_id") in selected_ids
+                    ]
+                    if selected_docs:
+                        docs = selected_docs
+
+                agent_reviews["evidence"] = evidence_judgement
+            except AgentReviewError as e:
+                print("【证据智能体】回退到 QFES：%s" % str(e))
+                agent_reviews["evidence"] = {
+                    "status": "fallback",
+                    "reason": str(e),
+                }
+            except Exception as e:
+                print("【证据智能体】未知错误，回退到 QFES：%s"
+                      % type(e).__name__)
+                agent_reviews["evidence"] = {
+                    "status": "fallback",
+                    "reason": "证据审查异常：%s" % type(e).__name__,
+                }
+        else:
+            agent_reviews["evidence"] = {
+                "status": "skipped",
+                "reason": "基础判定置信度较高，未触发证据复核",
+            }
 
     if not docs:
         return {
@@ -385,12 +509,14 @@ def ask(
             "refusal_reason": assessment.get("reason", "证据不足"),
             "sufficiency": assessment,
             "missing_facets": assessment.get("missing_facets", []),
+            "agent_reviews": agent_reviews,
             "data": {"answer": "未找到相关信息", "context": "", "sources": [],
                      "unique_sources": [], "refused": True,
                      "decision": "refuse",
                      "refusal_reason": assessment.get("reason", "证据不足"),
                      "sufficiency": assessment,
-                     "missing_facets": assessment.get("missing_facets", [])}
+                     "missing_facets": assessment.get("missing_facets", []),
+                     "agent_reviews": agent_reviews}
         }
 
 
@@ -502,8 +628,60 @@ def ask(
             "decision": "refuse",
             "reason": "生成阶段判断资料不足以回答",
         }
+
+    if ANSWER_AUDITOR is not None and AGENT_ANSWER_AUDIT and not model_refused:
+        audit_evidence = [
+            {
+                "evidence_id": index,
+                "source": source,
+                "text": text,
+            }
+            for index, (text, source) in enumerate(docs, 1)
+        ]
+        try:
+            answer_audit = ANSWER_AUDITOR.review(
+                query,
+                answer,
+                decision,
+                audit_evidence,
+            )
+            original_decision = decision
+            answer, decision, audit_refused = apply_answer_audit(
+                answer,
+                decision,
+                answer_audit,
+            )
+            refused = refused or audit_refused
+            if decision != original_decision:
+                assessment = {
+                    **assessment,
+                    "decision": decision,
+                    "reason": answer_audit.get("reason")
+                    or "回答忠实度审查调整了最终判定",
+                }
+            agent_reviews["answer"] = answer_audit
+        except AgentReviewError as e:
+            print("【回答审查】回退到未审查回答：%s" % str(e))
+            agent_reviews["answer"] = {
+                "status": "fallback",
+                "reason": str(e),
+            }
+        except Exception as e:
+            print("【回答审查】未知错误，保留原回答：%s"
+                  % type(e).__name__)
+            agent_reviews["answer"] = {
+                "status": "fallback",
+                "reason": "回答审查异常：%s" % type(e).__name__,
+            }
+    elif model_refused:
+        agent_reviews["answer"] = {
+            "status": "skipped",
+            "reason": "生成模型已主动拒答",
+        }
+
     response_extra = {
         "normalization": normalization,
+        "qfes_decision": qfes_decision,
         "decision": decision,
         "model_refused": model_refused,
         "refusal_reason": (
@@ -513,6 +691,7 @@ def ask(
         ),
         "sufficiency": assessment,
         "missing_facets": assessment.get("missing_facets", []),
+        "agent_reviews": agent_reviews,
     }
     return {
         "code": 200,

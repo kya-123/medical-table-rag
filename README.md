@@ -15,7 +15,9 @@
   ├─ RRF 融合
   ├─ bge-reranker-base 重排
   ├─ 证据充分性判定
-  └─ DeepSeek 生成答案和引用
+  ├─ 证据裁判智能体（低置信度按需触发）
+  ├─ DeepSeek 生成答案和引用
+  └─ 回答与引用审查智能体
 ```
 
 ## 功能
@@ -26,8 +28,10 @@
 - 使用 Cross-Encoder 对候选片段重排；
 - 回答中带【资料N】引用，接口返回 `sources`；
 - 资料不足时返回 `partial` 或 `refuse`，不强行补全；
+- 低置信度场景由证据裁判智能体复核分面覆盖和原文引用；
+- 生成后由回答审查智能体检查引用、数值和结论是否超出来源；
 - 支持多轮追问改写、受保护的文件上传、删除和用户档案；
-- 向量模型和重排模型在本地运行，只有生成阶段访问 DeepSeek。
+- 向量模型和重排模型在本地运行；生成和双智能体审查按需访问 DeepSeek。
 
 ## 目录
 
@@ -38,6 +42,7 @@
 | `profile_store.py` | 带访问令牌的个人健康档案存储 |
 | `retrieval.py` | 召回、融合、重排和表格补全 |
 | `evidence_sufficiency.py` | 意图、分面覆盖率和三态判定 |
+| `agent_review.py` | 证据裁判与回答引用审查 |
 | `generation.py` | 模型调用和多轮改写 |
 | `api.py` | FastAPI 路由 |
 | `eval/` | 题库和评测脚本 |
@@ -146,6 +151,10 @@ X-Profile-Token: <保存时返回的 Token>
 - `partial`：只能回答一部分；
 - `refuse`：资料不足，不生成推测性答案。
 
+接口还会返回 `qfes_decision` 和 `agent_reviews`。前者是原 QFES 的判定，
+后者记录证据裁判、回答审查是否执行、是否调整了状态，以及模型异常时的回退情况。
+智能体不能无证据升级回答；调用超时或 JSON 校验失败时会保留原 QFES 结果。
+
 ## 常用环境变量
 
 | 变量 | 默认值 | 说明 |
@@ -163,6 +172,12 @@ X-Profile-Token: <保存时返回的 Token>
 | `RAG_CHROMA_DIR` | 自动选择 | 索引目录 |
 | `RAG_RERANK_POOL` | `40` | 重排候选数 |
 | `RAG_MIN_RERANK_SCORE` | `0.3` | 最低整体意图分 |
+| `RAG_AGENT_EVIDENCE_REVIEW_MODE` | `uncertain` | 证据裁判模式：`off`、`uncertain`、`always` |
+| `RAG_AGENT_ANSWER_AUDIT` | `1` | 是否审查生成后的引用和结论 |
+| `RAG_AGENT_REVIEW_TIMEOUT` | `30` | 单次智能体审查超时秒数 |
+| `RAG_AGENT_REVIEW_MAX_TOKENS` | `700` | 单次审查最大输出 Token |
+| `RAG_AGENT_REVIEW_MAX_CANDIDATES` | `12` | 证据裁判最多查看的候选片段数 |
+| `RAG_AGENT_REVIEW_MAX_CHARS` | `16000` | 单次审查最多发送的候选文本字符数 |
 | `RAG_MAX_DOCX_UNCOMPRESSED_MB` | `200` | DOCX 解压后的体积上限 |
 | `RAG_MAX_PDF_PAGES` | `1000` | 单份 PDF 的最大页数 |
 
@@ -202,6 +217,8 @@ python eval/retrieval_gate_probe.py
 - 档案正文仍是本地明文 SQLite，不能直接存真实患者数据。
 - 限流保存在单进程内存中，多进程部署需要换成 Redis 等共享限流。
 - 上传文档仍应只允许管理员操作，不能开放给普通问答用户。
+- 两个审查智能体会增加模型调用次数、延迟和 Token 成本。
+- 当前指标尚未包含加入双智能体后的新一轮对比结果。
 - 评测集较小，指标适合版本对比，不适合作为公开榜单。
 
 公网部署前请阅读 [SECURITY.md](SECURITY.md)。
